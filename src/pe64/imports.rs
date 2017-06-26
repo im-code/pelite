@@ -62,7 +62,7 @@ pub struct Imports<'a, P> {
 impl<'a, P: Pe<'a> + Copy> Imports<'a, P> {
 	pub(crate) fn new(pe: P) -> Result<Imports<'a, P>> {
 		let datadir = pe.data_directory().get(IMAGE_DIRECTORY_ENTRY_IMPORT).ok_or(Error::OOB)?;
-		let image = pe.derva_slice_f(datadir.VirtualAddress, |image: &IMAGE_IMPORT_DESCRIPTOR| image.is_null())?;
+		let image = pe.derva_slice_f(datadir.VirtualAddress, |image: &IMAGE_IMPORT_DESCRIPTOR| image.FirstThunk == 0)?;
 		Ok(Imports { pe, image })
 	}
 	/// Gets the PE instance.

@@ -200,7 +200,7 @@ pub struct IMAGE_OPTIONAL_HEADER32 {
 	pub SizeOfHeapCommit: u32,
 	pub LoaderFlags: u32,
 	pub NumberOfRvaAndSizes: u32,
-	pub DataDirectory: [IMAGE_DATA_DIRECTORY; IMAGE_NUMBEROF_DIRECTORY_ENTRIES],
+	pub DataDirectory: [IMAGE_DATA_DIRECTORY; 0],
 }
 
 #[repr(C, packed)]
@@ -234,7 +234,7 @@ pub struct IMAGE_OPTIONAL_HEADER64 {
 	pub SizeOfHeapCommit: u64,
 	pub LoaderFlags: u32,
 	pub NumberOfRvaAndSizes: u32,
-	pub DataDirectory: [IMAGE_DATA_DIRECTORY; IMAGE_NUMBEROF_DIRECTORY_ENTRIES],
+	pub DataDirectory: [IMAGE_DATA_DIRECTORY; 0],
 }
 
 //----------------------------------------------------------------
@@ -335,11 +335,6 @@ pub struct IMAGE_IMPORT_DESCRIPTOR {
 	pub ForwarderChain: u32,
 	pub Name: u32,
 	pub FirstThunk: u32,
-}
-impl IMAGE_IMPORT_DESCRIPTOR {
-	pub fn is_null(&self) -> bool {
-		self.OriginalFirstThunk == 0 && self.TimeDateStamp == 0 && self.ForwarderChain == 0 && self.Name == 0 && self.FirstThunk == 0
-	}
 }
 
 pub const IMAGE_ORDINAL_FLAG32: u32 = 0x80000000;
