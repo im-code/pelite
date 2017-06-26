@@ -435,6 +435,66 @@ pub struct IMAGE_BASE_RELOC_TYPEOFFSET(pub u16);
 //----------------------------------------------------------------
 
 #[repr(C, packed)]
+pub struct IMAGE_LOAD_CONFIG_DIRECTORY32 {
+	pub Size: u32,
+	pub TimeDateStamp: u32,
+	pub MajorVersion: u16,
+	pub MinorVersion: u16,
+	pub GlobalFlagsClear: u32,
+	pub GlobalFlagsSet: u32,
+	pub CriticalSectionDefaultTimeout: u32,
+	pub DeCommitFreeBlockThreshold: u32,
+	pub DeCommitTotalFreeThreshold: u32,
+	pub LockPrefixTable: u32,
+	pub MaximumAllocationSize: u32,
+	pub VirtualMemoryThreshold: u32,
+	pub ProcessHeapFlags: u32,
+	pub ProcessAffinityMask: u32,
+	pub CSDVersion: u16,
+	pub Reserved1: u16,
+	pub EditList: u32,
+	pub SecurityCookie: u32,
+	pub SEHandlerTable: u32,
+	pub SEHandlerCount: u32,
+	pub GuardCFCheckFunctionPointer: u32,
+	pub Reserved2: u32,
+	pub GuardCFFunctionTable: u32,
+	pub GuardCFFunctionCount: u32,
+	pub GuardFlags: u32,
+}
+
+#[repr(C, packed)]
+pub struct IMAGE_LOAD_CONFIG_DIRECTORY64 {
+	pub Size: u32,
+	pub TimeDateStamp: u32,
+	pub MajorVersion: u16,
+	pub MinorVersion: u16,
+	pub GlobalFlagsClear: u32,
+	pub GlobalFlagsSet: u32,
+	pub CriticalSectionDefaultTimeout: u32,
+	pub DeCommitFreeBlockThreshold: u64,
+	pub DeCommitTotalFreeThreshold: u64,
+	pub LockPrefixTable: u64,
+	pub MaximumAllocationSize: u64,
+	pub VirtualMemoryThreshold: u64,
+	pub ProcessHeapFlags: u64,
+	pub ProcessAffinityMask: u64,
+	pub CSDVersion: u16,
+	pub Reserved1: u16,
+	pub EditList: u64,
+	pub SecurityCookie: u64,
+	pub SEHandlerTable: u64,
+	pub SEHandlerCount: u64,
+	pub GuardCFCheckFunctionPointer: u64,
+	pub Reserved2: u64,
+	pub GuardCFFunctionTable: u64,
+	pub GuardCFFunctionCount: u64,
+	pub GuardFlags: u32,
+}
+
+//----------------------------------------------------------------
+
+#[repr(C, packed)]
 pub struct IMAGE_TLS_DIRECTORY32 {
 	pub StartAddressOfRawData: u32,
 	pub EndAddressOfRawData: u32,
