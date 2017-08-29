@@ -4,8 +4,7 @@ The ClientClass links client and server entities.
 
 extern crate pelite;
 
-use std::{env, process};
-use std::ffi::OsStr;
+use std::env;
 
 use pelite::pe32::{Va, Ptr, Pe, PeFile};
 use pelite::util::{CStr, Pod};
@@ -23,22 +22,22 @@ fn main() {
 		for ref path in args {
 			match pelite::FileMap::open(path) {
 				Ok(file) => {
-					match PeFile::from_bytes(&file).and_then(|file| classes(file)) {
-						Ok(list) => {
-							for class in list {
-								println!("{:?}", class);
-							}
-						},
-						Err(err) => {
-							eprintln!("pelite: error parsing {:?}: {}", path, err);
-						},
-					}
+					match PeFile::from_bytes(&file).and_then(classes) {
+						Ok(list) => display(list),
+						Err(err) => eprintln!("pelite: error parsing {:?}: {}", path, err),
+					};
 				},
 				Err(err) => {
 					eprintln!("pelite: error opening {:?}: {}", path, err);
 				},
 			};
 		}
+	}
+}
+
+fn display(list: Vec<Class>) {
+	for class in &list {
+		println!("{:?}", class);
 	}
 }
 
@@ -90,16 +89,16 @@ pub fn classes<'a>(client: PeFile<'a>) -> pelite::Result<Vec<Class<'a>>> {
 		// Figure out the size of the entity type:
 		// The CreateFn is a function to create instances of this entity type, it allocates memory and thus includes its size
 		let size_of = if let Ok(bytes) = client.read_bytes(client_class.pCreateFn) {
-			// Old Source: TF2, l4D2, etc...
+			// Old Source: TF2, L4D2, etc...
 			if bytes.starts_with(&[0x55, 0x8B, 0xEC, 0x56, 0x68]) {
-				client.deref_copy(client_class.pCreateFn + 5).unwrap_or(0u32)
+				client.deref_copy(client_class.pCreateFn + 5).unwrap_or(1u32)
 			}
 			// New Source: CSGO (the allocation function is inlined)
 			else if bytes.starts_with(&[0x55, 0x8B, 0xEC, 0xA1]) {
-				client.deref_copy(client_class.pCreateFn + 39).unwrap_or(0u32)
+				client.deref_copy(client_class.pCreateFn + 39).unwrap_or(1u32)
 			}
 			// Unknown...
-			else { 0u32 }
+			else { 2u32 }
 		}
 		else { 0u32 };
 		// Class ids are initialized somewhere else...

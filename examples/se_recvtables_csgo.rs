@@ -1,12 +1,41 @@
+/*!
+RecvTables for networking entity data.
+*/
+
 #![allow(bad_style)]
 
-use ::std::mem;
+extern crate pelite;
 
-use ::pelite::pe32::{Va, Ptr, Pe, PeFile};
-use ::pelite::util::{CStr, Pod};
-use ::pelite;
+use std::mem;
 
-use ::{Class, Prop};
+use pelite::pe32::{Va, Ptr, Pe, PeFile};
+use pelite::util::{CStr, Pod};
+
+//----------------------------------------------------------------
+
+fn main() {
+	let mut args = env::args_os();
+	args.next();
+
+	if args.len() == 0 {
+		println!("PeLite example: CSGO RecvTables.");
+	}
+	else {
+		for ref path in args {
+			match pelite::FileMap::open(path) {
+				Ok(file) => {
+					match PeFile::from_bytes(&file).and_then(recvtables) {
+						Ok(list) => display(list),
+						Err(err) => eprintln!("pelite: error parsing {:?}: {}", path, err),
+					};
+				},
+				Err(err) => {
+					eprintln!("pelite: error opening {:?}: {}", path, err);
+				},
+			};
+		}
+	}
+}
 
 //----------------------------------------------------------------
 
@@ -44,7 +73,7 @@ unsafe impl Pod for RecvProp {}
 
 //----------------------------------------------------------------
 
-pub fn build(client: PeFile) -> pelite::Result<Vec<Class>> {
+pub fn recvtables(client: PeFile) -> pelite::Result<Vec<Class>> {
 	// The RecvTables aren't constructed yet...
 	let mut classes = Vec::new();
 

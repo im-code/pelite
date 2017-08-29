@@ -11,10 +11,10 @@ This only allows you to query interfaces which you know by name and version, thi
 
 extern crate pelite;
 
-use std::{env};
+use std::env;
 
 use pelite::pe32::{Rva, Va, Ptr, Pe, PeFile};
-use pelite::pe32::exports::{Export};
+use pelite::pe32::exports::Export;
 use pelite::util::{CStr, Pod};
 
 //----------------------------------------------------------------
@@ -30,22 +30,22 @@ fn main() {
 		for ref path in args {
 			match pelite::FileMap::open(path) {
 				Ok(file) => {
-					match PeFile::from_bytes(&file).and_then(|file| interfaces(file)) {
-						Ok(list) => {
-							for reg in list {
-								println!("{}!{:08X} {}", reg.dll_name, reg.offset, reg.name);
-							}
-						},
-						Err(err) => {
-							eprintln!("pelite: error parsing {:?}: {}", path, err);
-						},
-					}
+					match PeFile::from_bytes(&file).and_then(interfaces) {
+						Ok(list) => display(list),
+						Err(err) => eprintln!("pelite: error parsing {:?}: {}", path, err),
+					};
 				},
 				Err(err) => {
 					eprintln!("pelite: error opening {:?}: {}", path, err);
 				},
 			};
 		}
+	}
+}
+
+fn display(list: Vec<Interface>) {
+	for reg in &list {
+		println!("{}!{:08X} {}", reg.dll_name, reg.offset, reg.name);
 	}
 }
 

@@ -6,7 +6,7 @@ Datamaps manage entity state.
 
 extern crate pelite;
 
-use std::{env};
+use std::env;
 
 use pelite::pe32::{Va, Ptr, Pe, PeFile};
 use pelite::util::{CStr, Pod};
@@ -24,13 +24,9 @@ fn main() {
 		for ref path in args {
 			match pelite::FileMap::open(path) {
 				Ok(file) => {
-					match PeFile::from_bytes(&file).and_then(|file| datamaps(file)) {
-						Ok(list) => {
-							display(list);
-						},
-						Err(err) => {
-							eprintln!("pelite: error parsing {:?}: {}", path, err);
-						},
+					match PeFile::from_bytes(&file).and_then(datamaps) {
+						Ok(list) => display(list),
+						Err(err) => eprintln!("pelite: error parsing {:?}: {}", path, err),
 					}
 				},
 				Err(err) => {
