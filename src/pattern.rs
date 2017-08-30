@@ -353,7 +353,7 @@ fn parse_pat(pat: &str) -> Result<Pattern, PatError> {
 //----------------------------------------------------------------
 
 /// Max saved cursors.
-pub(crate) const MAX_SAVE: usize = 7;
+pub(crate) const MAX_SAVE: usize = 8;
 
 /// Pattern scan result.
 ///
@@ -361,7 +361,7 @@ pub(crate) const MAX_SAVE: usize = 7;
 ///
 /// Each backtick in a pattern writes to the next slot where the first element is the start of the pattern match.
 #[derive(Copy, Clone, Default, Eq, PartialEq, Debug)]
-pub struct Match(pub u32, pub u32, pub u32, pub u32, pub u32, pub u32, pub u32);
+pub struct Match(pub u32, pub u32, pub u32, pub u32, pub u32, pub u32, pub u32, pub u32);
 impl AsRef<[u32; MAX_SAVE]> for Match {
 	fn as_ref(&self) -> &[u32; MAX_SAVE] {
 		unsafe { mem::transmute(self) }
