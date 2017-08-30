@@ -5,8 +5,9 @@ RecvTables for networking entity data.
 #![allow(bad_style)]
 
 extern crate pelite;
+extern crate lde;
 
-use std::mem;
+use std::{env, mem};
 
 use pelite::pe32::{Va, Ptr, Pe, PeFile};
 use pelite::util::{CStr, Pod};
@@ -34,6 +35,20 @@ fn main() {
 				},
 			};
 		}
+	}
+}
+
+fn display(list: Vec<Class>) {
+	for class in &list {
+		print!("class {}", class.name);
+		if let Some(base) = class.base {
+			print!(" extends {}", base);
+		}
+		println!(" {{");
+		for prop in &class.props {
+			println!("\t#[field_offset({})] {}: {},", prop.offset, prop.name, prop.ty);
+		}
+		println!("}}");
 	}
 }
 
@@ -71,9 +86,33 @@ struct RecvProp {
 unsafe impl Pod for RecvTable {}
 unsafe impl Pod for RecvProp {}
 
+static PROP_TYPES: [&str; 8] = [
+	"Int",
+	"Float",
+	"Vector",
+	"VectorXY",
+	"String",
+	"Array",
+	"DataTable",
+	"Int64",
+];
+
 //----------------------------------------------------------------
 
-pub fn recvtables(client: PeFile) -> pelite::Result<Vec<Class>> {
+#[derive(Clone, Debug)]
+pub struct Class<'a> {
+	pub name: &'a str,
+	pub base: Option<&'a str>,
+	pub props: Vec<Prop<'a>>,
+}
+#[derive(Copy, Clone, Debug)]
+pub struct Prop<'a> {
+	pub ty: &'a str,
+	pub name: &'a str,
+	pub offset: i32,
+}
+
+pub fn recvtables<'a>(client: PeFile<'a>) -> pelite::Result<Vec<Class<'a>>> {
 	// The RecvTables aren't constructed yet...
 	let mut classes = Vec::new();
 
@@ -86,7 +125,7 @@ pub fn recvtables(client: PeFile) -> pelite::Result<Vec<Class>> {
 	// `m.5`: Start of constructor code
 	let pat = pelite::pattern::parse("A1???? A801 0F85${'C705????*{'} C705????'???? C705???????? C705????*{'}} 83C801 'C705????00000000 A3").unwrap();
 	for m in client.scanner().matches_code(&pat) {
-		if let Ok(class) = build_recvtable(client, &m) {
+		if let Ok(class) = recvtable(client, &m) {
 			classes.push(class);
 		}
 	}
@@ -94,7 +133,7 @@ pub fn recvtables(client: PeFile) -> pelite::Result<Vec<Class>> {
 	// Variation of the above for DT_CSPlayer and others
 	let patv = pelite::pattern::parse("55 8BEC A1???? 83EC? A801 0F85${'C705????*{'} B801000000 C705????'???? C705???????? C705????*{'}} 83C801 'B9???? A3").unwrap();
 	for m in client.scanner().matches_code(&patv) {
-		if let Ok(class) = build_recvtable(client, &m) {
+		if let Ok(class) = recvtable(client, &m) {
 			classes.push(class);
 		}
 	}
@@ -102,18 +141,18 @@ pub fn recvtables(client: PeFile) -> pelite::Result<Vec<Class>> {
 	Ok(classes)
 }
 
-fn build_recvtable(client: PeFile, m: &pelite::pattern::Match) -> pelite::Result<Class> {
+fn recvtable<'a>(client: PeFile<'a>, m: &pelite::pattern::Match) -> pelite::Result<Class<'a>> {
 	let props_rva = m.2;
 	let code: &[u8] = client.derva_slice(m.5, (m.1 - m.5) as usize)?;
 	let &n_props: &i32 = client.derva(m.3)?;
-	let net_table_name = client.derva_c_str(m.4)?.to_str().unwrap();
+	let net_table_name = client.derva_str(m.4)?.to_str().unwrap();
 
 	// Allocate memory to initialize the props
 	let mut recv_props = vec![unsafe { mem::zeroed::<RecvProp>() }; n_props as usize];
 	let props_size = (n_props as usize * mem::size_of::<RecvProp>()) as u32;
 	let props_ptr = recv_props.as_mut_ptr() as *mut u8;
 
-	// Run through the code initializing the memory
+	// Run through the code virtually executing only the relevant instructions initializing the RecvTable
 	use lde::{InsnSet, x86};
 	for (opcode, _) in x86::lde(code, m.5) {
 		// mov dword ptr addr, imm32
@@ -135,30 +174,17 @@ fn build_recvtable(client: PeFile, m: &pelite::pattern::Match) -> pelite::Result
 	}
 
 	let mut props = Vec::new();
-	for recv_prop in recv_props {
-		if let Ok(var_name) = client.deref_c_str(recv_prop.pVarName) {
-			props.push(Prop {
-				name: var_name.to_str().unwrap().to_owned(),
-				ty: recv_prop.RecvType.to_string(),
-				offset: recv_prop.Offset as u32,
-			});
+	for recv_prop in &recv_props {
+		if let Ok(name) = client.deref_str(recv_prop.pVarName).and_then(|s| s.to_str().map_err(|_| pelite::Error::CStr)) {
+			let ty = *PROP_TYPES.get(recv_prop.RecvType as usize).unwrap_or(&"?");
+			let offset = recv_prop.Offset;
+			props.push(Prop { name, ty, offset });
 		}
 	}
 
 	Ok(Class {
 		base: None,
-		name: net_table_name.to_owned(),
-		id: 0,
-		size_of: 0,
+		name: net_table_name,
 		props
 	})
 }
-
-// fn static_constructors<'a>(client: PeFile<'a>) -> pelite::Result<&'a [Va]> {
-// 	let pat = pattern::parse("68*{'} 68{'} E8???? 59 59 C705????02000000").unwrap();
-// 	let m = client.scanner().find_code(&pat).expect("static constructors not found");
-// 	let end = m.1;
-// 	let start = m.2;
-// 	let len = ((end - start) / 4) as usize;
-// 	client.derva_slice(start, len)
-// }
