@@ -2,7 +2,7 @@
 Typed virtual address.
 */
 
-use std::{cmp, fmt};
+use std::{cmp, fmt, mem, ops};
 use std::marker::PhantomData;
 
 use util::{Offset, Pod};
@@ -48,7 +48,7 @@ impl<T: ?Sized> Ptr<T> {
 	/// assert_eq!(target, Ptr::from(0x2004));
 	/// ```
 	pub fn shift<U: ?Sized, I>(self, offset: I) -> Ptr<U> where Va: Offset<I> {
-		Ptr(self.0.offset(offset), PhantomData)
+		Ptr(self.0.offset(offset, 1), PhantomData)
 	}
 }
 
@@ -117,6 +117,18 @@ impl<T: ?Sized> ops::DerefMut for Ptr<T> {
 	}
 }
 */
+impl<T, I> ops::Add<I> for Ptr<T> where Va: Offset<I> {
+	type Output = Ptr<T>;
+	fn add(self, rhs: I) -> Ptr<T> {
+		Ptr(self.0.offset(rhs, mem::size_of::<T>()), PhantomData)
+	}
+}
+impl<T, I> ops::Add<I> for Ptr<[T]> where Va: Offset<I> {
+	type Output = Ptr<T>;
+	fn add(self, rhs: I) -> Ptr<T> {
+		Ptr(self.0.offset(rhs, mem::size_of::<T>()), PhantomData)
+	}
+}
 impl<T: ?Sized> fmt::Debug for Ptr<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		branch! {
