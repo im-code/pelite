@@ -1,5 +1,5 @@
 
-use std::{io, ptr, slice};
+use std::{io, mem, ptr, slice};
 use std::ffi::OsStr;
 use std::path::Path;
 use std::os::windows::ffi::OsStrExt;
@@ -9,6 +9,18 @@ use std::os::raw::c_void;
 const INVALID_HANDLE_VALUE: RawHandle = !0 as RawHandle;
 const NULL: RawHandle = 0 as RawHandle;
 const FALSE: i32 = 0;
+
+#[allow(non_snake_case)]
+#[repr(C)]
+struct MEMORY_BASIC_INFORMATION {
+	BaseAddress: *mut c_void,
+	AllocationBase: *mut c_void,
+	AllocationProtect: u32,
+	RegionSize: usize,
+	State: u32,
+	Protect: u32,
+	Type: u32,
+}
 
 extern "system" {
 	fn CreateFileW(
@@ -38,10 +50,15 @@ extern "system" {
 	fn UnmapViewOfFile(
 		lpBaseAddress: *const c_void,
 	) -> i32;
-	fn GetFileSizeEx(
-		hFile: RawHandle,
-		lpFileSize: *mut u64,
-	) -> i32;
+	// fn GetFileSizeEx(
+	// 	hFile: RawHandle,
+	// 	lpFileSize: *mut u64,
+	// ) -> i32;
+	fn VirtualQuery(
+		lpAddress: *const c_void,
+		lpBuffer: *mut MEMORY_BASIC_INFORMATION,
+		dwLength: usize,
+	) -> usize;
 	fn CloseHandle(
 		hObject: RawHandle,
 	) -> i32;
@@ -60,6 +77,7 @@ macro_rules! close_handle {
 pub struct ImageMap {
 	map: RawHandle,
 	view: *const c_void,
+	size: usize,
 }
 impl ImageMap {
 	/// Maps the executable image into memory with correctly aligned sections.
@@ -84,7 +102,11 @@ impl ImageMap {
 				let view = MapViewOfFile(map, /*FILE_MAP_READ*/0x0004, 0, 0, 0);
 				if view != ptr::null() {
 					// All good! Trust the OS with correctly mapping the image...
-					return Ok(ImageMap { map, view });
+					let mut memory_info = mem::uninitialized();
+					if VirtualQuery(view, &mut memory_info, mem::size_of::<MEMORY_BASIC_INFORMATION>()) != 0 {
+						let size = memory_info.RegionSize;
+						return Ok(ImageMap { map, view, size });
+					}
 				}
 				let err = io::Error::last_os_error();
 				close_handle!(map);
@@ -96,7 +118,7 @@ impl ImageMap {
 }
 impl AsRef<[u8]> for ImageMap {
 	fn as_ref(&self) -> &[u8] {
-		unimplemented!()
+		unsafe { slice::from_raw_parts(self.view as *const u8, self.size) }
 	}
 }
 impl Drop for ImageMap {
@@ -131,15 +153,6 @@ impl FileMap {
 		if file == INVALID_HANDLE_VALUE {
 			return Err(io::Error::last_os_error());
 		}
-		// Get the file size as we'll be mapping it wholesome
-		let mut file_size = 0u64;
-		let e = GetFileSizeEx(file, &mut file_size);
-		let size = file_size as usize;
-		if e == FALSE {
-			let err = io::Error::last_os_error();
-			close_handle!(file);
-			return Err(err);
-		}
 		// Create the memory file mapping
 		let map = CreateFileMappingW(file, ptr::null(), /*PAGE_READONLY*/0x02, 0, 0, ptr::null());
 		close_handle!(file);
@@ -148,12 +161,17 @@ impl FileMap {
 		}
 		// Map view of the file
 		let view = MapViewOfFile(map, /*FILE_MAP_READ*/0x0004, 0, 0, 0);
-		if view == ptr::null() {
-			let err = io::Error::last_os_error();
-			close_handle!(map);
-			return Err(err);
+		if view != ptr::null() {
+			// All good! Trust the OS with correctly mapping the image...
+			let mut memory_info = mem::uninitialized();
+			if VirtualQuery(view, &mut memory_info, mem::size_of::<MEMORY_BASIC_INFORMATION>()) != 0 {
+				let size = memory_info.RegionSize;
+				return Ok(FileMap { map, view, size });
+			}
 		}
-		Ok(FileMap { map, view, size })
+		let err = io::Error::last_os_error();
+		close_handle!(map);
+		return Err(err);
 	}}
 }
 impl AsRef<[u8]> for FileMap {
