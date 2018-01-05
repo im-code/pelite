@@ -110,7 +110,7 @@ impl Drop for ImageMap {
 
 /// Memory-mapped file.
 pub struct FileMap {
-	map: RawHandle,
+	pub map: RawHandle,
 	view: *const c_void,
 	size: usize,
 }
